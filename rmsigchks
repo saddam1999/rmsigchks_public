@@ -5,90 +5,109 @@ import usbexec
 import struct
 
 def rmsigchks_t8010():
-    import dfu
-    if 'PWND:[' not in serial_number:
-        print 'ERROR: The device must be in pwned DFU Mode before applying patches, so please enable pwned DFU Mode first.'
-        sys.exit()
-    if 'PWND:[checkm8]' not in serial_number:
-        print 'ERROR: Only devices PWND with checkm8 are supported.'
-        sys.exit()
+	import dfu
+	class DeviceConfig:
+		def __init__(self, version, cpid, patches):
+			self.version = version
+			self.cpid    = cpid
+			self.patches = patches
+	def exploit():
+		rmsigchks_t8010 = {
+		0x100006C80: "\x21\x00\x80\x52\xe1\xe3\x03\x39\xe1\xef\x03\x39\xe1\xf7\x03\x39\xe1\xeb\x03\x39\xe1\xf3\x03\x39\xe1\xfb\x03\x39",
+		0x100006ca0: "\x1f\x20\x03\xd5",
+		0x100006ca4: "\x1f\x20\x03\xd5",
+		0x100006ca8: "\x1f\x20\x03\xd5",
+		0x10000f1b0: "\x00\x00\x80\xd2\xc0\x03\x5f\xd6"
+		}
+		return [
+			DeviceConfig("iBoot-2696.0.0.1.33", 0x8010, rmsigchks_t8010)
+		]
 
-    try:
-        dev = usbexec.PwnedUSBDevice()
-    except:
-        print 'ERROR: Failed to apply patches.'
-        print 'This usually means patches have already been applied before.'
-        sys.exit()
+	if 'PWND:[' not in serial_number:
+		print 'ERROR: The device must be in pwned DFU Mode before applying patches, so please enable pwned DFU Mode first.'
+		sys.exit()
+	if 'PWND:[checkm8]' not in serial_number:
+		print 'ERROR: Only devices PWND with checkm8 are supported.'
+		sys.exit()
 
-    dev.write_memory(0x100006ca8, b"\x1f\x20\x03\xd5")
-    dev.write_memory(0x100006c80, b"".join([
-              b"\x21\x00\x80\x52", 
-              b"\xe1\xe7\x03\x39", 
-              b"\x1f\x20\x03\xd5",
-              b"\xe1\xef\x03\x39", 
-              b"\xe1\xf7\x03\x39", 
-              b"\x1f\x20\x03\xd5",
-              b"\x1f\x20\x03\xd5",
-              b"\x1f\x20\x03\xd5",
-              b"\x1f\x20\x03\xd5",
-            ]))
-    print 'Successfully applied patches!'
-    print '* Resetting USB'
-    device = dfu.acquire_device()
-    device.ctrl_transfer(0x21, 4, 0, 0, 0, 0)
-    dfu.usb_reset(device)
-    dfu.release_device(device)
-    print '* You can now upload unsigned images to device.'
-    print '* pwned DFU Mode will effectively be disabled.'
+	try:
+		dev = usbexec.PwnedUSBDevice()
+	except:
+		print 'ERROR: Failed to apply patches.'
+		print 'This usually means patches have already been applied before.'
+		sys.exit()
+	def exploit_configs(serial):
+	    for config in exploit():
+	        if "SRTG:[%s]" % config.version in serial:
+	            return config
+	    for config in exploit():
+	        if "CPID:%s" % config.cpid in serial:
+	            print "ERROR: CPID is compatible, but serial number string does not match."
+	            print "Make sure device is in SecureROM DFU Mode and not LLB/iBSS DFU Mode. Exiting."
+	            sys.exit(1)
+	config = exploit_config(device.serial_number)
+	for i in config.patches.keys():
+		dev.write_memory(i, config.patches[i])
+	print 'Successfully applied patches!'
+	print '* Resetting USB'
+	device = dfu.acquire_device()
+	try:
+		device.ctrl_transfer(0x21, 4, 0, 0, 0, 0)
+	except:
+		pass
+	dfu.usb_reset(device)
+	dfu.release_device(device)
+	print '* You can now upload unsigned images to device.'
+	print '* pwned DFU Mode will effectively be disabled.'
 
 
 if __name__ == '__main__': 
-    device = dfu.acquire_device()
-    serial_number = device.serial_number
-    dfu.release_device(device)
-    print 'Device: ' + serial_number
-    if 'CPID:8010' in serial_number:
-        rmsigchks_t8010()
-        sys.exit()
-    if 'CPID:8015' not in serial_number:
-        print 'ERROR: This device is not supported.'
-        print 'Supported devices are iPhone 7, iPhone 8, iPhone 8 Plus and iPhone X.'
-        sys.exit()
-    if 'PWND:[' not in serial_number:
-        print 'ERROR: The device must be in pwned DFU Mode before applying patches, so please enable pwned DFU Mode first.'
-        sys.exit()
-    if 'PWND:[checkm8]' not in serial_number:
-        print 'ERROR: Only devices PWND with checkm8 are supported.'
-        sys.exit()
+	device = dfu.acquire_device()
+	serial_number = device.serial_number
+	dfu.release_device(device)
+	print 'Device: ' + serial_number
+	if 'CPID:8010' in serial_number:
+		rmsigchks_t8010()
+		sys.exit()
+	if 'CPID:8015' not in serial_number:
+		print 'ERROR: This device is not supported.'
+		print 'Supported devices are iPhone 7, iPhone 8, iPhone 8 Plus and iPhone X.'
+		sys.exit()
+	if 'PWND:[' not in serial_number:
+		print 'ERROR: The device must be in pwned DFU Mode before applying patches, so please enable pwned DFU Mode first.'
+		sys.exit()
+	if 'PWND:[checkm8]' not in serial_number:
+		print 'ERROR: Only devices PWND with checkm8 are supported.'
+		sys.exit()
 
-    try:
-        device = usbexec.PwnedUSBDevice()
-    except:
-        print "ERROR: Failed to apply patches."
-        print 'This usually means patches have already been applied before.'
-        sys.exit()
-    try:
-        device.write_memory(0x1801E8000 + 0x5000        , struct.pack('<8Q', 0, 0, 0, 0x1800086A0, 2, 132, 128, 0))
-        device.write_memory(0x1801E8000 + 0x5000 +  0x80, struct.pack('<8Q', 0, 0, 0, 0x1800086A0, 2,   8, 128, 0))
-        device.write_memory(0x1801E8000 + 0x5000 + 0x100, struct.pack('<8Q', 0, 0, 0, 0x1800086A0, 2,   8, 128, 0))
-        device.write_memory(0x1801E8000 + 0x5000 + 0x180, struct.pack('<8Q', 0, 0, 0, 0x1800086A0, 2,   8, 128, 0))
-        device.execute(0, 0x10000D4EC, 0x1801E8000 + 0x5000        )
-        device.execute(0, 0x10000D4EC, 0x1801E8000 + 0x5000 +  0x80)
-        device.execute(0, 0x10000D4EC, 0x1801E8000 + 0x5000 + 0x100)
-        device.execute(0, 0x10000D4EC, 0x1801E8000 + 0x5000 + 0x180)
-        device.execute(0, 0x10000DB98)
-        try:
-            with open('0x8015.bin','rb') as f:
-                data = f.read()
-        except IOError:
-            print "ERROR: Couldn't find 0x8015.bin. Exiting."
-            sys.exit()
-        device.write_memory(0x180018000 + 0x400, data)
-        device.execute(0, 0x180018400)
-    except:
-        print 'ERROR: Unknown error during applying patches.'
-        sys.exit()
-    print 'Successfully applied patches!'
-    print '* You can now upload unsigned images to device.'
-    print '* pwned DFU Mode will effectively be disabled.'
-        
+	try:
+		device = usbexec.PwnedUSBDevice()
+	except:
+		print "ERROR: Failed to apply patches."
+		print 'This usually means patches have already been applied before.'
+		sys.exit()
+	try:
+		device.write_memory(0x1801E8000 + 0x5000        , struct.pack('<8Q', 0, 0, 0, 0x1800086A0, 2, 132, 128, 0))
+		device.write_memory(0x1801E8000 + 0x5000 +  0x80, struct.pack('<8Q', 0, 0, 0, 0x1800086A0, 2,   8, 128, 0))
+		device.write_memory(0x1801E8000 + 0x5000 + 0x100, struct.pack('<8Q', 0, 0, 0, 0x1800086A0, 2,   8, 128, 0))
+		device.write_memory(0x1801E8000 + 0x5000 + 0x180, struct.pack('<8Q', 0, 0, 0, 0x1800086A0, 2,   8, 128, 0))
+		device.execute(0, 0x10000D4EC, 0x1801E8000 + 0x5000        )
+		device.execute(0, 0x10000D4EC, 0x1801E8000 + 0x5000 +  0x80)
+		device.execute(0, 0x10000D4EC, 0x1801E8000 + 0x5000 + 0x100)
+		device.execute(0, 0x10000D4EC, 0x1801E8000 + 0x5000 + 0x180)
+		device.execute(0, 0x10000DB98)
+		try:
+			with open('0x8015.bin','rb') as f:
+				data = f.read()
+		except IOError:
+			print "ERROR: Couldn't find 0x8015.bin. Exiting."
+			sys.exit()
+		device.write_memory(0x180018000 + 0x400, data)
+		device.execute(0, 0x180018400)
+	except:
+		print 'ERROR: Unknown error during applying patches.'
+		sys.exit()
+	print 'Successfully applied patches!'
+	print '* You can now upload unsigned images to device.'
+	print '* pwned DFU Mode will effectively be disabled.'
+		
