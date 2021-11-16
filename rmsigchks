@@ -4,74 +4,15 @@ import dfu2 as dfu
 import usbexec
 import struct
 
-def rmsigchks_t8010():
-	import dfu
-	class DeviceConfig:
-		def __init__(self, version, cpid, patches):
-			self.version = version
-			self.cpid    = cpid
-			self.patches = patches
-	def exploit():
-		rmsigchks_t8010 = {
-		0x100006C80: "\x21\x00\x80\x52\xe1\xe3\x03\x39\xe1\xef\x03\x39\xe1\xf7\x03\x39\xe1\xeb\x03\x39\xe1\xf3\x03\x39\xe1\xfb\x03\x39",
-		0x100006ca0: "\x1f\x20\x03\xd5",
-		0x100006ca4: "\x1f\x20\x03\xd5",
-		0x100006ca8: "\x1f\x20\x03\xd5",
-		0x10000f1b0: "\x00\x00\x80\xd2\xc0\x03\x5f\xd6"
-		}
-		return [
-			DeviceConfig("iBoot-2696.0.0.1.33", 0x8010, rmsigchks_t8010)
-		]
-
-	if 'PWND:[' not in serial_number:
-		print 'ERROR: The device must be in pwned DFU Mode before applying patches, so please enable pwned DFU Mode first.'
-		sys.exit()
-	if 'PWND:[checkm8]' not in serial_number:
-		print 'ERROR: Only devices PWND with checkm8 are supported.'
-		sys.exit()
-
-	try:
-		dev = usbexec.PwnedUSBDevice()
-	except:
-		print 'ERROR: Failed to apply patches.'
-		print 'This usually means patches have already been applied before.'
-		sys.exit()
-	def exploit_configs(serial):
-	    for config in exploit():
-	        if "SRTG:[%s]" % config.version in serial:
-	            return config
-	    for config in exploit():
-	        if "CPID:%s" % config.cpid in serial:
-	            print "ERROR: CPID is compatible, but serial number string does not match."
-	            print "Make sure device is in SecureROM DFU Mode and not LLB/iBSS DFU Mode. Exiting."
-	            sys.exit(1)
-	config = exploit_config(device.serial_number)
-	for i in config.patches.keys():
-		dev.write_memory(i, config.patches[i])
-	print 'Successfully applied patches!'
-	print '* Resetting USB'
-	device = dfu.acquire_device()
-	try:
-		device.ctrl_transfer(0x21, 4, 0, 0, 0, 0)
-	except:
-		pass
-	dfu.usb_reset(device)
-	dfu.release_device(device)
-	print '* You can now upload unsigned images to device.'
-	print '* pwned DFU Mode will effectively be disabled.'
-
-
 if __name__ == '__main__': 
+	print "*** based on akayn's securerom patch ***"
 	device = dfu.acquire_device()
 	serial_number = device.serial_number
 	dfu.release_device(device)
 	print 'Device: ' + serial_number
-	if 'CPID:8010' in serial_number:
-		rmsigchks_t8010()
-		sys.exit()
 	if 'CPID:8015' not in serial_number:
 		print 'ERROR: This device is not supported.'
-		print 'Supported devices are iPhone 7, iPhone 8, iPhone 8 Plus and iPhone X.'
+		print 'Supported devices are iPhone 8, iPhone 8 Plus and iPhone X.'
 		sys.exit()
 	if 'PWND:[' not in serial_number:
 		print 'ERROR: The device must be in pwned DFU Mode before applying patches, so please enable pwned DFU Mode first.'
@@ -107,7 +48,6 @@ if __name__ == '__main__':
 	except:
 		print 'ERROR: Unknown error during applying patches.'
 		sys.exit()
-	print 'Successfully applied patches!'
+	print 'securerom patched.'
 	print '* You can now upload unsigned images to device.'
-	print '* pwned DFU Mode will effectively be disabled.'
-		
+	print '* and debug the next boot stages.'
